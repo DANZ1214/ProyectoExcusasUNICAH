@@ -20,6 +20,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,11 +30,27 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ProyectoExusasTheme {
+                val navController = rememberNavController()
                 Scaffold(
                     topBar = { CustomTopBar() },
                     modifier = Modifier.fillMaxSize()
                 ) { innerPadding ->
-                    Content(modifier = Modifier.padding(innerPadding))
+                    NavHost(
+                        navController = navController,
+                        startDestination = "login",
+                        modifier = Modifier.padding(innerPadding)
+                    ) {
+                        composable("login") {
+                            Content(
+                                onLoginClick = {
+                                    navController.navigate("excusa")
+                                }
+                            )
+                        }
+                        composable("excusa") {
+                            ExcusaScreen()
+                        }
+                    }
                 }
             }
         }
@@ -49,7 +68,7 @@ fun CustomTopBar() {
                 horizontalArrangement = Arrangement.Start
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.ic_launcher_foreground), //cambiar para agregar el logo de la U
+                    painter = painterResource(id = R.drawable.ic_launcher_foreground),
                     contentDescription = "Logo",
                     modifier = Modifier.size(48.dp)
                 )
@@ -60,8 +79,11 @@ fun CustomTopBar() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun Content(modifier: Modifier = Modifier) {
-    var usuario by remember { mutableStateOf("") } //variable global para recordar el usuario
+fun Content(
+    modifier: Modifier = Modifier,
+    onLoginClick: () -> Unit
+) {
+    var usuario by remember { mutableStateOf("") }
     var contrasena by remember { mutableStateOf("") }
 
     Column(
@@ -69,41 +91,41 @@ fun Content(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Image(painter = painterResource(id = R.drawable.ic_launcher_foreground), contentDescription = "Logo Unicah")
-            OutlinedTextField(
-                value = usuario,
-                onValueChange = { newValue ->
-                    if (newValue.all { char -> char.isDigit() }) {
-                        usuario = newValue
-                    }
-                },
-                label = { Text("Usuario") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), // Hace que solo se pueda usar el teclado numerico
-                colors = TextFieldDefaults.outlinedTextFieldColors(
-                    focusedBorderColor = Color.Blue,
-                    unfocusedBorderColor = Color.Gray
-                ),
-                textStyle = TextStyle(fontSize = 18.sp)
-            )
-        }
+        Image(
+            painter = painterResource(id = R.drawable.ic_launcher_foreground),
+            contentDescription = "Logo Unicah"
+        )
+        OutlinedTextField(
+            value = usuario,
+            onValueChange = { newValue ->
+                if (newValue.all { char -> char.isDigit() }) {
+                    usuario = newValue
+                }
+            },
+            label = { Text("Usuario") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            colors = TextFieldDefaults.outlinedTextFieldColors(
+                focusedBorderColor = Color.Blue,
+                unfocusedBorderColor = Color.Gray
+            ),
+            textStyle = TextStyle(fontSize = 18.sp)
+        )
         Spacer(modifier = Modifier.height(16.dp))
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            OutlinedTextField(
-                value = contrasena,
-                onValueChange = { contrasena = it },
-                label = { Text("Contraseña") },
-                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                colors = TextFieldDefaults.outlinedTextFieldColors(
-                    focusedBorderColor = Color.Blue,
-                    unfocusedBorderColor = Color.Gray
-                ),
-                textStyle = TextStyle(fontSize = 18.sp)
-            )
-        }
+        OutlinedTextField(
+            value = contrasena,
+            onValueChange = { contrasena = it },
+            label = { Text("Contraseña") },
+            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+            colors = TextFieldDefaults.outlinedTextFieldColors(
+                focusedBorderColor = Color.Blue,
+                unfocusedBorderColor = Color.Gray
+            ),
+            textStyle = TextStyle(fontSize = 18.sp)
+        )
         Spacer(modifier = Modifier.height(16.dp))
         Button(onClick = {
-            println("Usuario ingresado: $usuario") //cambiar para redirigir a la siguiente pantalla de alumno o maestro
+            println("Usuario ingresado: $usuario")
+            onLoginClick()
         }) {
             Text("Ingresar")
         }
@@ -114,10 +136,6 @@ fun Content(modifier: Modifier = Modifier) {
 @Composable
 fun DefaultPreview() {
     ProyectoExusasTheme {
-        Scaffold(
-            topBar = { CustomTopBar() }
-        ) { innerPadding ->
-            Content(modifier = Modifier.padding(innerPadding))
-        }
+        Content(onLoginClick = {})
     }
 }
