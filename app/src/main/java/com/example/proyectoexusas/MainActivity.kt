@@ -5,24 +5,26 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import com.example.proyectoexusas.ui.theme.ProyectoExusasTheme
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.draw.paint
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.font.FontWeight
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import coil.compose.rememberImagePainter
+import com.example.proyectoexusas.ui.theme.ProyectoExusasTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,15 +67,12 @@ fun CustomTopBar() {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Start
+                horizontalArrangement = Arrangement.Center
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_launcher_foreground),
-                    contentDescription = "Logo",
-                    modifier = Modifier.size(48.dp)
-                )
+                Text("EXCUSA", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.White)
             }
-        }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF1E50A2))
     )
 }
 
@@ -87,14 +86,20 @@ fun Content(
     var contrasena by remember { mutableStateOf("") }
 
     Column(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .padding(16.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Image(
-            painter = painterResource(id = R.drawable.ic_launcher_foreground),
-            contentDescription = "Logo Unicah"
+            painter = rememberImagePainter("https://i.postimg.cc/NfcLn1tB/image-removebg-preview-65.png"),
+            contentDescription = "Logo Unicah",
+            modifier = Modifier.size(100.dp)
         )
+        Spacer(modifier = Modifier.height(16.dp))
+
         OutlinedTextField(
             value = usuario,
             onValueChange = { newValue ->
@@ -102,40 +107,39 @@ fun Content(
                     usuario = newValue
                 }
             },
-            label = { Text("Usuario") },
+            label = { Text("Usuario", color = Color.Black) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             colors = TextFieldDefaults.outlinedTextFieldColors(
-                focusedBorderColor = Color.Blue,
-                unfocusedBorderColor = Color.Gray
+                focusedBorderColor = Color(0xFF1E50A2),
+                unfocusedBorderColor = Color(0xFF1E50A2)
             ),
-            textStyle = TextStyle(fontSize = 18.sp)
+            textStyle = TextStyle(fontSize = 18.sp, color = Color.Black)
         )
+
         Spacer(modifier = Modifier.height(16.dp))
+
         OutlinedTextField(
             value = contrasena,
             onValueChange = { contrasena = it },
-            label = { Text("Contraseña") },
-            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+            label = { Text("Contraseña", color = Color.Black) },
+            visualTransformation = PasswordVisualTransformation(),
             colors = TextFieldDefaults.outlinedTextFieldColors(
-                focusedBorderColor = Color.Blue,
-                unfocusedBorderColor = Color.Gray
+                focusedBorderColor = Color(0xFF1E50A2),
+                unfocusedBorderColor = Color(0xFF1E50A2)
             ),
-            textStyle = TextStyle(fontSize = 18.sp)
+            textStyle = TextStyle(fontSize = 18.sp, color = Color.Black)
         )
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = {
-            println("Usuario ingresado: $usuario")
-            onLoginClick()
-        }) {
-            Text("Ingresar")
-        }
-    }
-}
 
-@Preview(showBackground = true)
-@Composable
-fun DefaultPreview() {
-    ProyectoExusasTheme {
-        Content(onLoginClick = {})
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            onClick = {
+                println("Usuario ingresado: $usuario")
+                onLoginClick()
+            },
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E50A2))
+        ) {
+            Text("Ingresar", color = Color.White)
+        }
     }
 }
