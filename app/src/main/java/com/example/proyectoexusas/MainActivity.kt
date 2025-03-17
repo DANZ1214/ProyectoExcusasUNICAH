@@ -103,7 +103,10 @@ class MainActivity : ComponentActivity() {
     private fun login(usuario: String, contrasena: String, navController: androidx.navigation.NavController) {
         scope.launch {
             try {
-                val response = client.post("http://localhost:3008/api/unicah/user/login") {
+                // Construye la URL de la API con la dirección IP y la ruta proporcionadas.
+                val apiUrl = "http://192.168.100.3:3008/api/unicah/user/login" // Asegúrate de que el puerto sea correcto.
+
+                val response = client.post(apiUrl) {
                     contentType(ContentType.Application.Json)
                     setBody(mapOf("userId" to usuario, "pass" to contrasena))
                 }
@@ -117,7 +120,6 @@ class MainActivity : ComponentActivity() {
                     // Manejar el error, por ejemplo, mostrando un mensaje al usuario
                     println("Error de inicio de sesión: $message")
                     errorMsg = message;
-
                 }
             } catch (e: Exception) {
                 // Manejar errores de conexión
