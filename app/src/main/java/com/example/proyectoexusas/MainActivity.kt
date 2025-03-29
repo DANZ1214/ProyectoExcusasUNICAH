@@ -1,24 +1,26 @@
 package com.example.proyectoexusas
 
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.font.FontWeight
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -35,17 +37,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
-/**
- * MainActivity: La actividad principal de la aplicación.
- * Gestiona la configuración inicial, la navegación y la lógica de inicio de sesión.
- */
 class MainActivity : ComponentActivity() {
 
-    // Cliente HTTP Ktor para realizar solicitudes a la API.
     private val client = HttpClient(CIO) {
         install(ContentNegotiation) {
             json(Json {
@@ -55,37 +51,43 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // CoroutineScope para manejar operaciones asíncronas.
     private val scope = CoroutineScope(Dispatchers.Main)
+    private var selectedFileUri by mutableStateOf<Uri?>(null)
 
-    /**
-     * onCreate: Se llama al crear la actividad.
-     * Configura la interfaz de usuario y la navegación.
-     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge() // Habilita el modo de borde a borde para una interfaz de usuario inmersiva.
+        enableEdgeToEdge()
+
+        // Launcher para seleccionar archivos (PDF o imagen)
+        val getContent = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+            selectedFileUri = uri
+        }
+
         setContent {
             ProyectoExusasTheme {
-                val navController = rememberNavController() // Controlador de navegación para la aplicación.
-                Scaffold( // Proporciona una estructura básica de diseño con una barra superior y contenido.
-                    topBar = { CustomTopBar() }, // Barra superior personalizada.
+                val navController = rememberNavController()
+
+                Scaffold(
+                    topBar = { CustomTopBar() },
                     modifier = Modifier.fillMaxSize()
                 ) { innerPadding ->
-                    NavHost( // Contenedor para la navegación basada en destinos.
+                    NavHost(
                         navController = navController,
-                        startDestination = "login", // Destino inicial.
+                        startDestination = "login",
                         modifier = Modifier.padding(innerPadding)
                     ) {
-                        composable("login") { // Definición de la pantalla de inicio de sesión.
+                        composable("login") {
                             Content(
                                 onLoginClick = { usuario, contrasena ->
                                     login(usuario, contrasena, navController)
                                 }
                             )
                         }
-                        composable("excusa") { // Definición de la pantalla de excusas.
-                            ExcusaScreen()
+                        composable("excusa") {
+                            ExcusaScreen(
+                                onSelectFile = { getContent.launch("*/*") },
+                                fileName = selectedFileUri?.lastPathSegment ?: "Seleccionar archivo"
+                            )
                         }
                     }
                 }
@@ -93,18 +95,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * login: Realiza la solicitud de inicio de sesión a la API.
-     *
-     * @param usuario Nombre de usuario ingresado.
-     * @param contrasena Contraseña ingresada.
-     * @param navController Controlador de navegación para redirigir después del inicio de sesión.
-     */
     private fun login(usuario: String, contrasena: String, navController: androidx.navigation.NavController) {
         scope.launch {
             try {
-                // Construye la URL de la API con la dirección IP y la ruta proporcionadas.
-                val apiUrl = "http://192.168.100.3:3008/api/unicah/user/login" // Asegúrate de que el puerto sea correcto.
+                val apiUrl = "http://192.168.1.7:3008/api/unicah/user/login"
 
                 val response = client.post(apiUrl) {
                     contentType(ContentType.Application.Json)
@@ -112,27 +106,22 @@ class MainActivity : ComponentActivity() {
                 }
 
                 if (response.status.isSuccess()) {
-                    navController.navigate("excusa") // Navega a la pantalla de excusas si el inicio de sesión es exitoso.
+                    navController.navigate("excusa")
                 } else {
                     val body = response.bodyAsText()
                     val json = Json.parseToJsonElement(body).jsonObject
                     val message = json["message"]?.jsonPrimitive?.content ?: "Usuario o contraseña incorrectos"
-                    // Manejar el error, por ejemplo, mostrando un mensaje al usuario
                     println("Error de inicio de sesión: $message")
-                    errorMsg = message;
+                    errorMsg = message
                 }
             } catch (e: Exception) {
-                // Manejar errores de conexión
                 println("Error de conexión: ${e.message}")
-                errorMsg = "Error de conexión con el servidor";
+                errorMsg = "Error de conexión con el servidor"
             }
         }
     }
 }
 
-/**
- * CustomTopBar: Barra superior personalizada para la aplicación.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomTopBar() {
@@ -150,23 +139,16 @@ fun CustomTopBar() {
     )
 }
 
-// Variable para almacenar el mensaje de error del inicio de sesión.
-var errorMsg : String = "";
+var errorMsg: String = ""
 
-/**
- * Content: Contenido de la pantalla de inicio de sesión.
- *
- * @param modifier Modificador para personalizar el diseño.
- * @param onLoginClick Función lambda para manejar el evento de clic en el botón de inicio de sesión.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Content(
     modifier: Modifier = Modifier,
     onLoginClick: (String, String) -> Unit
 ) {
-    var usuario by remember { mutableStateOf("") } // Estado para el nombre de usuario.
-    var contrasena by remember { mutableStateOf("") } // Estado para la contraseña.
+    var usuario by remember { mutableStateOf("") }
+    var contrasena by remember { mutableStateOf("") }
 
     Column(
         modifier = modifier
