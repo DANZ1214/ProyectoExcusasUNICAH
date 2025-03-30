@@ -157,7 +157,7 @@ fun ExcusaScreen(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.fillMaxWidth(),
                     color = Color.Black
-                )
+                ) //Adios
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Button(
