@@ -83,10 +83,12 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
-                        composable("excusa") {
+                        composable("excusa/{alumnoId}") { backStackEntry ->
+                            val alumnoId = backStackEntry.arguments?.getString("alumnoId")?.toIntOrNull() ?: 0
                             ExcusaScreen(
                                 onSelectFile = { getContent.launch("*/*") },
-                                fileName = selectedFileUri?.lastPathSegment ?: "Seleccionar archivo"
+                                fileName = selectedFileUri?.lastPathSegment ?: "Seleccionar archivo",
+                                alumnoId = alumnoId
                             )
                         }
                     }
@@ -98,7 +100,7 @@ class MainActivity : ComponentActivity() {
     private fun login(usuario: String, contrasena: String, navController: androidx.navigation.NavController) {
         scope.launch {
             try {
-                val apiUrl = "http://192.168.1.7:3008/api/unicah/user/login"
+                val apiUrl = "http://192.168.100.3:3008/api/unicah/user/login"
 
                 val response = client.post(apiUrl) {
                     contentType(ContentType.Application.Json)
@@ -106,7 +108,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 if (response.status.isSuccess()) {
-                    navController.navigate("excusa")
+                    navController.navigate("excusa/$usuario") // Pasar el usuario como ID
                 } else {
                     val body = response.bodyAsText()
                     val json = Json.parseToJsonElement(body).jsonObject

@@ -17,19 +17,21 @@ import coil.compose.rememberImagePainter
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
+import io.ktor.client.request.forms.formData
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.*
 
-val client = HttpClient() // Importante: tenelo global o en otro archivo
+val client = HttpClient()
 
 @SuppressLint("UnrememberedMutableState")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExcusaScreen(
     onSelectFile: () -> Unit,
-    fileName: String
+    fileName: String,
+    alumnoId: Int
 ) {
     var selectedReason by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
@@ -182,9 +184,9 @@ fun ExcusaScreen(
                                 razon = selectedReason,
                                 descripcion = description,
                                 archivo = fileName,
-                                alumnoId = 1 // Aquí ponés el ID real del alumno autenticado
-                            ) { message ->
-                                alertMessage = message
+                                alumnoId = alumnoId // Usar el ID recibido como parámetro
+                            ) {
+                                alertMessage = it
                             }
                         }
                     },
@@ -208,5 +210,44 @@ fun ExcusaScreen(
                 }
             }
         )
+    }
+}
+
+suspend fun enviarExcusaReal(
+    razon: String,
+    descripcion: String,
+    archivo: String,
+    alumnoId: Int,
+    onMessage: (String) -> Unit
+) {
+    try {
+        val apiUrl = "http://192.168.100.3:3008/api/unicah/excusa/insertExcusa?alumnoId=$alumnoId"
+
+        val formData = formData {
+            append("razon", razon)
+            append("descripcion", descripcion)
+            if (archivo.isNotEmpty()) {
+                append("archivo", archivo)
+            }
+        }
+
+        val response: HttpResponse = client.post(apiUrl) {
+            setBody(formData)
+        }
+
+        if (response.status.isSuccess()) {
+            val body = response.bodyAsText()
+            val json = Json.parseToJsonElement(body).jsonObject
+            val message = json["message"]?.jsonPrimitive?.content ?: "Excusa enviada con éxito"
+            onMessage(message)
+        } else {
+            val errorBody = response.bodyAsText()
+            val json = Json.parseToJsonElement(errorBody).jsonObject
+            val errorMsg = json["message"]?.jsonPrimitive?.content ?: "Error al enviar la excusa"
+            onMessage(errorMsg)
+        }
+    } catch (e: Exception) {
+        println("Error al enviar excusa: ${e.message}")
+        onMessage("Error de conexión con el servidor")
     }
 }
