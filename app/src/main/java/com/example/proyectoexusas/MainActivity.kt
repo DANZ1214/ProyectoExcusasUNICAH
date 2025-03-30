@@ -36,9 +36,7 @@ import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.*
 
 class MainActivity : ComponentActivity() {
 
@@ -58,7 +56,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Launcher para seleccionar archivos (PDF o imagen)
         val getContent = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
             selectedFileUri = uri
         }
@@ -94,24 +91,31 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
-        } //Hola
+        }
     }
 
-    private fun login(usuario: String, contrasena: String, navController: androidx.navigation.NavController) {
+    fun login(usuario: String, contrasena: String, navController: androidx.navigation.NavController) {
         scope.launch {
             try {
-                val apiUrl = "http://192.168.100.3:3008/api/unicah/user/login"
+                val apiUrl = "http://192.168.1.7:3008/api/unicah/user/login"
 
                 val response = client.post(apiUrl) {
                     contentType(ContentType.Application.Json)
                     setBody(mapOf("userId" to usuario, "pass" to contrasena))
                 }
 
+                val body = response.bodyAsText()
+                val json = Json.parseToJsonElement(body).jsonObject
+
                 if (response.status.isSuccess()) {
-                    navController.navigate("excusa/$usuario") // Pasar el usuario como ID
+                    val alumnoId = json["alumnoId"]?.jsonPrimitive?.intOrNull
+
+                    if (alumnoId != null && alumnoId > 0) {
+                        navController.navigate("excusa/$alumnoId")
+                    } else {
+                        errorMsg = "Este usuario no está registrado como alumno"
+                    }
                 } else {
-                    val body = response.bodyAsText()
-                    val json = Json.parseToJsonElement(body).jsonObject
                     val message = json["message"]?.jsonPrimitive?.content ?: "Usuario o contraseña incorrectos"
                     println("Error de inicio de sesión: $message")
                     errorMsg = message

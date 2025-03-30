@@ -17,7 +17,7 @@ import coil.compose.rememberImagePainter
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
-import io.ktor.client.request.forms.formData
+import io.ktor.client.request.forms.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.coroutines.launch
@@ -157,7 +157,8 @@ fun ExcusaScreen(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.fillMaxWidth(),
                     color = Color.Black
-                ) //Adios
+                )
+
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Button(
@@ -184,7 +185,7 @@ fun ExcusaScreen(
                                 razon = selectedReason,
                                 descripcion = description,
                                 archivo = fileName,
-                                alumnoId = alumnoId // Usar el ID recibido como parámetro
+                                alumnoId = alumnoId
                             ) {
                                 alertMessage = it
                             }
@@ -213,6 +214,7 @@ fun ExcusaScreen(
     }
 }
 
+
 suspend fun enviarExcusaReal(
     razon: String,
     descripcion: String,
@@ -221,7 +223,7 @@ suspend fun enviarExcusaReal(
     onMessage: (String) -> Unit
 ) {
     try {
-        val apiUrl = "http://192.168.100.3:3008/api/unicah/excusa/insertExcusa?alumnoId=$alumnoId"
+        val apiUrl = "http://192.168.1.7:3008/api/unicah/excusa/insertExcusa?alumnoId=$alumnoId"
 
         val formData = formData {
             append("razon", razon)
@@ -231,9 +233,10 @@ suspend fun enviarExcusaReal(
             }
         }
 
-        val response: HttpResponse = client.post(apiUrl) {
-            setBody(formData)
-        }
+        val response: HttpResponse = client.submitFormWithBinaryData(
+            url = apiUrl,
+            formData = formData
+        )
 
         if (response.status.isSuccess()) {
             val body = response.bodyAsText()
@@ -247,7 +250,7 @@ suspend fun enviarExcusaReal(
             onMessage(errorMsg)
         }
     } catch (e: Exception) {
-        println("Error al enviar excusa: ${e.message}")
-        onMessage("Error de conexión con el servidor")
+        e.printStackTrace()
+        onMessage("Error de conexión con el servidor: ${e.localizedMessage}")
     }
 }
