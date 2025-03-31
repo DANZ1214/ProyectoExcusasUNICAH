@@ -168,7 +168,7 @@ fun Content(
             painter = rememberImagePainter("https://i.postimg.cc/NfcLn1tB/image-removebg-preview-65.png"),
             contentDescription = "Logo Unicah",
             modifier = Modifier
-                .size(150.dp)
+                .size(250.dp)
                 .align(Alignment.CenterHorizontally)
         )
 
