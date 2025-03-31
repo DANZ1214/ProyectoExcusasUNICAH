@@ -97,7 +97,7 @@ class MainActivity : ComponentActivity() {
     fun login(usuario: String, contrasena: String, navController: androidx.navigation.NavController) {
         scope.launch {
             try {
-                val apiUrl = "http://192.168.1.7:3008/api/unicah/user/login"
+                val apiUrl = "http://172.28.0.1:3008/api/unicah/user/login"
 
                 val response = client.post(apiUrl) {
                     contentType(ContentType.Application.Json)
@@ -167,8 +167,11 @@ fun Content(
         Image(
             painter = rememberImagePainter("https://i.postimg.cc/NfcLn1tB/image-removebg-preview-65.png"),
             contentDescription = "Logo Unicah",
-            modifier = Modifier.size(100.dp)
+            modifier = Modifier
+                .size(150.dp)
+                .align(Alignment.CenterHorizontally)
         )
+
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
