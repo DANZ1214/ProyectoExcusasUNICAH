@@ -1,6 +1,7 @@
 package com.example.proyectoexusas
 
 import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -18,7 +19,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavHostController
 import coil.compose.rememberAsyncImagePainter
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
@@ -28,11 +28,12 @@ import io.ktor.client.request.forms.formData
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.coroutines.launch
-import kotlinx.serialization.*
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 @Composable
-fun ExcusaScreen(alumnoId: Int, navController: NavHostController) {
+fun ExcusaScreen(alumnoId: String) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val client = remember { HttpClient(CIO) }
@@ -51,19 +52,21 @@ fun ExcusaScreen(alumnoId: Int, navController: NavHostController) {
     var clases by remember { mutableStateOf<List<Clase>>(emptyList()) }
     var archivoUri by remember { mutableStateOf<Uri?>(null) }
 
-    // File picker
     val filePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         archivoUri = uri
     }
 
-    // Cargar clases al inicio
+    // Carga de clases desde el backend
     LaunchedEffect(Unit) {
         try {
-            val response = client.get("http://192.168.100.3:3008/api/unicah/matriculaAlumno/getClasesAlumno/$alumnoId")
+            Log.d("EXCUSA", "Cargando clases para alumnoId=$alumnoId")
+            val response = client.get("http://192.168.1.7:3008/api/unicah/matriculaAlumno/getClasesAlumno/$alumnoId")
             val body = response.bodyAsText()
+            Log.d("EXCUSA", "Respuesta: $body")
             clases = Json.decodeFromString(body)
         } catch (e: Exception) {
-            Toast.makeText(context, "Error al cargar clases", Toast.LENGTH_SHORT).show()
+            Log.e("EXCUSA_ERROR", e.stackTraceToString())
+            Toast.makeText(context, "Error al cargar clases: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -110,7 +113,9 @@ fun ExcusaScreen(alumnoId: Int, navController: NavHostController) {
             value = descripcion,
             onValueChange = { descripcion = it },
             label = { Text("Describe la inasistencia") },
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
         )
 
         Text("Selecciona las clases:", style = MaterialTheme.typography.body1)
@@ -160,7 +165,7 @@ fun ExcusaScreen(alumnoId: Int, navController: NavHostController) {
 
                         val formData = MultiPartFormDataContent(
                             formData {
-                                append("alumnoId", alumnoId.toString())
+                                append("alumnoId", alumnoId)
                                 append("razon", selectedRazon!!)
                                 append("descripcion", descripcion)
                                 append("clases", Json.encodeToString(selectedClases))
@@ -176,7 +181,7 @@ fun ExcusaScreen(alumnoId: Int, navController: NavHostController) {
                             }
                         )
 
-                        val response = client.post("http://192.168.100.3:3008/api/unicah/excusa/insertExcusa") {
+                        val response = client.post("http://192.168.1.7:3008/api/unicah/excusa/insertExcusa") {
                             setBody(formData)
                         }
 
@@ -191,6 +196,7 @@ fun ExcusaScreen(alumnoId: Int, navController: NavHostController) {
                         }
 
                     } catch (e: Exception) {
+                        Log.e("ENVIO_ERROR", e.stackTraceToString())
                         Toast.makeText(context, "Fallo al enviar excusa", Toast.LENGTH_SHORT).show()
                     }
                 }

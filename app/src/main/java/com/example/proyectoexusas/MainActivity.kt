@@ -20,11 +20,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import coil.compose.rememberAsyncImagePainter
-import com.example.proyectoexcusas.DocenteScreen
+import com.example.proyectoexusas.ui.theme.ProyectoExusasTheme
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.request.*
@@ -38,17 +39,21 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            val navController = rememberNavController()
+            ProyectoExusasTheme {
+                val navController = rememberNavController()
 
-            NavHost(navController = navController, startDestination = "login") {
-                composable("login") { LoginScreen(navController) }
-                composable("excusa/{alumnoId}") { backStackEntry ->
-                    val alumnoId = backStackEntry.arguments?.getString("alumnoId")?.toIntOrNull() ?: 0
-                    ExcusaScreen(alumnoId, navController)
-                }
-                composable("docente/{docenteId}") { backStackEntry ->
-                    val docenteId = backStackEntry.arguments?.getString("docenteId")?.toIntOrNull() ?: 0
-                    DocenteScreen(docenteId, navController)
+                NavHost(navController = navController, startDestination = "login") {
+                    composable("login") { LoginScreen(navController) }
+
+                    composable("excusa/{alumnoId}") { backStackEntry ->
+                        val alumnoId = backStackEntry.arguments?.getString("alumnoId") ?: ""
+                        ExcusaScreen(alumnoId)
+                    }
+
+                    composable("docente/{docenteId}") { backStackEntry ->
+                        val docenteId = backStackEntry.arguments?.getString("docenteId") ?: ""
+                        DocenteScreen(docenteId)
+                    }
                 }
             }
         }
@@ -56,7 +61,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun LoginScreen(navController: NavController) {
+fun LoginScreen(navController: NavHostController) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val client = remember { HttpClient(CIO) }
@@ -79,11 +84,7 @@ fun LoginScreen(navController: NavController) {
                 .padding(bottom = 16.dp)
         )
 
-        Text(
-            "SISTEMA DE EXCUSAS UNICAH",
-            style = MaterialTheme.typography.h6,
-            color = Color(0xFF003366)
-        )
+        Text("SISTEMA DE EXCUSAS UNICAH", style = MaterialTheme.typography.h6, color = Color(0xFF003366))
 
         OutlinedTextField(
             value = userId,
@@ -110,7 +111,7 @@ fun LoginScreen(navController: NavController) {
                 if (userId.isNotBlank() && password.isNotBlank()) {
                     scope.launch {
                         try {
-                            val response: HttpResponse = client.post("http://192.168.100.3:3008/api/unicah/user/login") {
+                            val response: HttpResponse = client.post("http://192.168.1.7:3008/api/unicah/user/login") {
                                 contentType(ContentType.Application.Json)
                                 setBody("""{ "userId": "$userId", "pass": "$password" }""")
                             }
@@ -125,16 +126,16 @@ fun LoginScreen(navController: NavController) {
 
                             val loginResponse = Json.decodeFromString<LoginResponse>(body)
 
-                            when (loginResponse.user.roleId) {
-                                2 -> {
-                                    val alumnoId = loginResponse.alumnoId ?: 0
-                                    navController.navigate("excusa/$alumnoId")
+                            when {
+                                loginResponse.alumnoId != null -> {
+                                    navController.navigate("excusa/${loginResponse.alumnoId}")
                                 }
-                                3 -> {
-                                    val docenteId = loginResponse.docenteId ?: 0
-                                    navController.navigate("docente/$docenteId")
+                                loginResponse.docenteId != null -> {
+                                    navController.navigate("docente/${loginResponse.docenteId}")
                                 }
-                                else -> Toast.makeText(context, "Rol no permitido", Toast.LENGTH_SHORT).show()
+                                else -> {
+                                    Toast.makeText(context, "No se encontró rol válido", Toast.LENGTH_SHORT).show()
+                                }
                             }
                         } catch (e: Exception) {
                             Log.e("LOGIN_ERROR", e.stackTraceToString())
@@ -157,14 +158,15 @@ fun LoginScreen(navController: NavController) {
 
 @Serializable
 data class LoginResponse(
+    val message: String,
     val user: User,
-    val alumnoId: Int? = null,
-    val docenteId: Int? = null
+    val alumnoId: String? = null,
+    val docenteId: String? = null
 )
 
 @Serializable
 data class User(
-    val userId: Int,
+    val userId: String,
     val pass: String,
     val roleId: Int
 )

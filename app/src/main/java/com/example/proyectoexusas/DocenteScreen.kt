@@ -1,4 +1,4 @@
-package com.example.proyectoexcusas    //dOCENTEsCREEN.KT
+package com.example.proyectoexusas
 
 import android.content.Context
 import android.content.Intent
@@ -16,7 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavHostController
 import coil.compose.rememberAsyncImagePainter
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
@@ -29,7 +28,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 @Composable
-fun DocenteScreen(docenteId: Int, navController: NavHostController) {
+fun DocenteScreen(docenteId: String) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val client = remember { HttpClient(CIO) }
@@ -40,10 +39,10 @@ fun DocenteScreen(docenteId: Int, navController: NavHostController) {
 
     LaunchedEffect(Unit) {
         try {
-            val resClases = client.get("http://192.168.100.3:3008/api/unicah/matriculaAlumno/getClasesDocente/$docenteId")
+            val resClases = client.get("http://192.168.1.7:3008/api/unicah/matriculaAlumno/getClasesDocente/$docenteId")
             clases = Json.decodeFromString(resClases.bodyAsText())
 
-            val resExcusas = client.get("http://192.168.100.3:3008/api/unicah/excusa/getExcusasDocente/$docenteId")
+            val resExcusas = client.get("http://192.168.1.7:3008/api/unicah/excusa/getExcusasDocente/$docenteId")
             excusas = Json.decodeFromString(resExcusas.bodyAsText())
         } catch (e: Exception) {
             Toast.makeText(context, "Error al cargar datos", Toast.LENGTH_SHORT).show()
@@ -106,7 +105,7 @@ fun DocenteScreen(docenteId: Int, navController: NavHostController) {
                             color = Color.Blue,
                             modifier = Modifier.clickable {
                                 excusa.archivo?.let {
-                                    val uri = Uri.parse("http://192.168.100.3:3008/uploads/$it")
+                                    val uri = Uri.parse("http://192.168.1.7:3008/uploads/$it")
                                     val intent = Intent(Intent.ACTION_VIEW, uri)
                                     context.startActivity(intent)
                                 }
@@ -158,7 +157,7 @@ private fun actualizarEstado(
 ) {
     scope.launch {
         try {
-            val response = client.put("http://192.168.100.3:3008/api/unicah/excusa/updateExcusa") {
+            val response = client.put("http://192.168.1.7:3008/api/unicah/excusa/updateExcusa") {
                 contentType(ContentType.Application.Json)
                 setBody("""{ "id_excusa": $id_excusa, "estado": "$estado" }""")
             }
@@ -191,10 +190,4 @@ data class Excusa(
 data class Alumno(
     val alumnoId: Int,
     val nombre: String
-)
-
-@Serializable
-data class Clase(
-    val id_clase: Int,
-    val nombre_clase: String
 )
