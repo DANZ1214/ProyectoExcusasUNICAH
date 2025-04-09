@@ -1,201 +1,209 @@
 package com.example.proyectoexusas
 
-import android.annotation.SuppressLint
-import androidx.compose.foundation.*
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import coil.compose.rememberImagePainter
+import androidx.navigation.NavHostController
+import coil.compose.rememberAsyncImagePainter
 import io.ktor.client.*
+import io.ktor.client.engine.cio.*
 import io.ktor.client.request.*
+import io.ktor.client.request.forms.MultiPartFormDataContent
+import io.ktor.client.request.forms.formData
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.*
+import kotlinx.serialization.*
+import kotlinx.serialization.json.Json
 
-val client = HttpClient()
-
-@SuppressLint("UnrememberedMutableState")
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ExcusaScreen(
-    onSelectFile: () -> Unit,
-    fileName: String,
-    alumnoId: String
-) {
-    var selectedReason by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    val coroutineScope = rememberCoroutineScope()
-    var alertMessage by remember { mutableStateOf<String?>(null) }
+fun ExcusaScreen(alumnoId: Int, navController: NavHostController) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val client = remember { HttpClient(CIO) }
 
-    val reasonImages = mapOf(
+    val razones = listOf("Enfermedad", "Luto", "Viaje", "Otro")
+    val imagenes = mapOf(
         "Enfermedad" to "https://i.postimg.cc/3J052qVw/image-removebg-preview-55.png",
         "Luto" to "https://i.postimg.cc/T1ZskRF3/image-removebg-preview-67.png",
         "Viaje" to "https://i.postimg.cc/vB2kV7v9/image-removebg-preview-66.png",
         "Otro" to "https://i.postimg.cc/5tnkh5TG/image-removebg-preview-68.png"
     )
 
+    var selectedRazon by remember { mutableStateOf<String?>(null) }
+    var descripcion by remember { mutableStateOf("") }
+    var selectedClases by remember { mutableStateOf(listOf<Int>()) }
+    var clases by remember { mutableStateOf<List<Clase>>(emptyList()) }
+    var archivoUri by remember { mutableStateOf<Uri?>(null) }
+
+    // File picker
+    val filePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        archivoUri = uri
+    }
+
+    // Cargar clases al inicio
+    LaunchedEffect(Unit) {
+        try {
+            val response = client.get("http://192.168.100.3:3008/api/unicah/matriculaAlumno/getClasesAlumno/$alumnoId")
+            val body = response.bodyAsText()
+            clases = Json.decodeFromString(body)
+        } catch (e: Exception) {
+            Toast.makeText(context, "Error al cargar clases", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
             .padding(16.dp)
+            .wrapContentHeight(align = Alignment.Top)
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = "SISTEMA DE EXCUSAS UNICAH",
-            fontWeight = FontWeight.Bold,
-            fontSize = 20.sp,
-            color = Color(0xFF0D6EFD),
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
         Image(
-            painter = rememberImagePainter("https://i.postimg.cc/NfcLn1tB/image-removebg-preview-65.png"),
-            contentDescription = "Escudo UNICAH",
-            modifier = Modifier
-                .size(100.dp)
-                .align(Alignment.CenterHorizontally)
+            painter = rememberAsyncImagePainter("https://login.sec.unicah.net/imgs/NewLogo.png"),
+            contentDescription = "Logo UNICAH",
+            modifier = Modifier.height(100.dp),
+            contentScale = ContentScale.Fit
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Text("SISTEMA DE EXCUSAS UNICAH", color = Color(0xFF003366), style = MaterialTheme.typography.h6)
+        Text("BIENVENIDO", style = MaterialTheme.typography.h6, modifier = Modifier.padding(bottom = 16.dp))
 
-        Text("SELECCIONA UNA RAZÓN", fontWeight = FontWeight.Bold)
+        Text("Selecciona una razón:", style = MaterialTheme.typography.body1)
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            reasonImages.keys.forEach { reason ->
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    RadioButton(
-                        selected = selectedReason == reason,
-                        onClick = { selectedReason = reason },
-                        colors = RadioButtonDefaults.colors(selectedColor = Color(0xFF0D6EFD))
-                    )
+            razones.forEach { razon ->
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .clickable { selectedRazon = razon }
+                ) {
                     Image(
-                        painter = rememberImagePainter(reasonImages[reason]),
-                        contentDescription = reason,
-                        modifier = Modifier.size(50.dp)
+                        painter = rememberAsyncImagePainter(imagenes[razon]),
+                        contentDescription = razon,
+                        modifier = Modifier.size(60.dp)
                     )
-                    Text(reason, fontSize = 12.sp)
+                    RadioButton(selected = selectedRazon == razon, onClick = { selectedRazon = razon })
+                    Text(razon, style = MaterialTheme.typography.caption)
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
         OutlinedTextField(
-            value = description,
-            onValueChange = { description = it },
-            label = { Text("Descripción") },
-            modifier = Modifier.fillMaxWidth()
+            value = descripcion,
+            onValueChange = { descripcion = it },
+            label = { Text("Describe la inasistencia") },
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text("Seleccionar archivo (PDF, JPG o PNG):", fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(4.dp))
-
-        Button(
-            onClick = { onSelectFile() },
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C757D)),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Image(
-                    painter = rememberImagePainter("https://i.postimg.cc/zfVfh7CS/pdf.png"),
-                    contentDescription = "Adjuntar",
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(if (fileName.isNotEmpty()) fileName else "Seleccionar archivo", color = Color.White)
+        Text("Selecciona las clases:", style = MaterialTheme.typography.body1)
+        clases.forEach { clase ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(4.dp)
+                    .toggleable(
+                        value = selectedClases.contains(clase.id_clase),
+                        onValueChange = {
+                            selectedClases = if (it)
+                                selectedClases + clase.id_clase
+                            else
+                                selectedClases - clase.id_clase
+                        }
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Checkbox(checked = selectedClases.contains(clase.id_clase), onCheckedChange = null)
+                Text("${clase.nombre_clase} (${clase.id_clase})")
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Button(
+            onClick = { filePickerLauncher.launch("*/*") },
+            modifier = Modifier.padding(top = 8.dp)
+        ) {
+            Text("Seleccionar archivo")
+        }
+
+        archivoUri?.let {
+            Text("Archivo seleccionado: ${it.lastPathSegment}", style = MaterialTheme.typography.caption)
+        }
 
         Button(
             onClick = {
-                if (selectedReason.isEmpty()) {
-                    alertMessage = "Por favor, selecciona una razón"
-                    return@Button
-                }
-                if (description.isEmpty()) {
-                    alertMessage = "Por favor, escribe una descripción"
+                if (selectedRazon == null || descripcion.isBlank() || selectedClases.isEmpty()) {
+                    Toast.makeText(context, "Completa todos los campos", Toast.LENGTH_SHORT).show()
                     return@Button
                 }
 
-                coroutineScope.launch {
-                    enviarExcusaReal(
-                        razon = selectedReason,
-                        descripcion = description,
-                        archivo = fileName,
-                        alumnoId = alumnoId
-                    ) {
-                        alertMessage = it
+                scope.launch {
+                    try {
+                        val contentResolver = context.contentResolver
+                        val stream = archivoUri?.let { contentResolver.openInputStream(it) }
+
+                        val formData = MultiPartFormDataContent(
+                            formData {
+                                append("alumnoId", alumnoId.toString())
+                                append("razon", selectedRazon!!)
+                                append("descripcion", descripcion)
+                                append("clases", Json.encodeToString(selectedClases))
+
+                                archivoUri?.let { uri ->
+                                    val bytes = stream?.readBytes()
+                                    if (bytes != null) {
+                                        append("archivo", bytes, Headers.build {
+                                            append(HttpHeaders.ContentDisposition, "filename=\"documento.pdf\"")
+                                        })
+                                    }
+                                }
+                            }
+                        )
+
+                        val response = client.post("http://192.168.100.3:3008/api/unicah/excusa/insertExcusa") {
+                            setBody(formData)
+                        }
+
+                        if (response.status == HttpStatusCode.Created) {
+                            Toast.makeText(context, "Excusa enviada correctamente", Toast.LENGTH_LONG).show()
+                            selectedRazon = null
+                            descripcion = ""
+                            selectedClases = emptyList()
+                            archivoUri = null
+                        } else {
+                            Toast.makeText(context, "Error al enviar excusa", Toast.LENGTH_SHORT).show()
+                        }
+
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Fallo al enviar excusa", Toast.LENGTH_SHORT).show()
                     }
                 }
             },
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D6EFD)),
+            colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF003366)),
             modifier = Modifier
+                .padding(vertical = 16.dp)
                 .fillMaxWidth()
-                .height(50.dp)
         ) {
-            Text("ENVIAR", color = Color.White)
+            Text("Enviar Excusa", color = Color.White)
         }
-    }
-
-    alertMessage?.let {
-        AlertDialog(
-            onDismissRequest = { alertMessage = null },
-            title = { Text("Mensaje") },
-            text = { Text(it) },
-            confirmButton = {
-                Button(onClick = { alertMessage = null }) {
-                    Text("OK")
-                }
-            }
-        )
     }
 }
 
-suspend fun enviarExcusaReal(
-    razon: String,
-    descripcion: String,
-    archivo: String,
-    alumnoId: String,
-    onMessage: (String) -> Unit
-) {
-    try {
-        val apiUrl = "http://192.168.1.7:3008/api/unicah/excusa/insertExcusa"
-
-        val excuseData = buildJsonObject {
-            put("alumnoId", alumnoId)
-            put("razon", razon)
-            put("descripcion", descripcion)
-            if (archivo.isNotEmpty()) {
-                put("archivo", archivo)
-            }
-        }
-
-        val response: HttpResponse = client.post(apiUrl) {
-            contentType(ContentType.Application.Json)
-            setBody(excuseData.toString())
-        }
-
-        val json = Json.parseToJsonElement(response.bodyAsText()).jsonObject
-        val message = json["message"]?.jsonPrimitive?.content ?: "Excusa enviada con éxito"
-        onMessage(message)
-    } catch (e: Exception) {
-        onMessage("Error de conexión: ${e.localizedMessage}")
-    }
-}
+@Serializable
+data class Clase(val id_clase: Int, val nombre_clase: String)
