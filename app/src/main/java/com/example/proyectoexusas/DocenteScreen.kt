@@ -1,14 +1,15 @@
-package com.example.proyectoexusas
+package com.example.proyectoexcusas
 
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,109 +36,162 @@ fun DocenteScreen(docenteId: String) {
 
     var clases by remember { mutableStateOf(listOf<Clase>()) }
     var excusas by remember { mutableStateOf(listOf<Excusa>()) }
-    var selectedClases by remember { mutableStateOf(listOf<Int>()) }
+    var selectedClases by remember { mutableStateOf(listOf<String>()) }
 
     LaunchedEffect(Unit) {
         try {
+            val json = Json { ignoreUnknownKeys = true }
+
             val resClases = client.get("http://192.168.1.7:3008/api/unicah/matriculaAlumno/getClasesDocente/$docenteId")
-            clases = Json.decodeFromString(resClases.bodyAsText())
+            clases = json.decodeFromString(resClases.bodyAsText())
 
             val resExcusas = client.get("http://192.168.1.7:3008/api/unicah/excusa/getExcusasDocente/$docenteId")
-            excusas = Json.decodeFromString(resExcusas.bodyAsText())
+            excusas = json.decodeFromString(resExcusas.bodyAsText())
+
         } catch (e: Exception) {
-            Toast.makeText(context, "Error al cargar datos", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Error cargando datos: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 
     val filtered = if (selectedClases.isEmpty()) excusas else {
-        excusas.filter { excusa ->
-            excusa.clases.any { selectedClases.contains(it.id_clase) }
-        }
+        excusas.filter { it.clases.any { clase -> selectedClases.contains(clase.id_clase) } }
     }
 
-    Column(modifier = Modifier.padding(16.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
         Image(
             painter = rememberAsyncImagePainter("https://login.sec.unicah.net/imgs/NewLogo.png"),
             contentDescription = null,
-            modifier = Modifier.height(100.dp)
+            modifier = Modifier
+                .height(100.dp)
+                .align(Alignment.CenterHorizontally)
         )
 
-        Text("UNICAH - VISTA DOCENTE", style = MaterialTheme.typography.h6, color = Color(0xFF003366))
+        Text(
+            "UNICAH - VISTA DOCENTE",
+            style = MaterialTheme.typography.h6,
+            color = Color(0xFF003366),
+            modifier = Modifier.padding(vertical = 8.dp)
+        )
 
-        Text("Clases asignadas:", modifier = Modifier.padding(top = 8.dp))
-        clases.forEach { clase ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        selectedClases = if (selectedClases.contains(clase.id_clase))
-                            selectedClases - clase.id_clase
-                        else
-                            selectedClases + clase.id_clase
-                    }
-                    .padding(vertical = 4.dp)
-            ) {
-                Checkbox(
-                    checked = selectedClases.contains(clase.id_clase),
-                    onCheckedChange = null
-                )
-                Text("${clase.nombre_clase} (${clase.id_clase})")
+        Text("Clases Asignadas:", style = MaterialTheme.typography.subtitle1)
+
+        if (clases.isEmpty()) {
+            Text("No se encontraron clases", color = Color.Red)
+        } else {
+            clases.forEach { clase ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 2.dp)
+                        .clickable {
+                            selectedClases = if (selectedClases.contains(clase.id_clase))
+                                selectedClases - clase.id_clase
+                            else
+                                selectedClases + clase.id_clase
+                        }
+                ) {
+                    Checkbox(
+                        checked = selectedClases.contains(clase.id_clase),
+                        onCheckedChange = null
+                    )
+                    Text("${clase.id_clase} - ${clase.nombre_clase}")
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-        LazyColumn {
-            items(filtered) { excusa ->
-                Card(modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp)
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (filtered.isEmpty()) {
+            Text("No hay excusas para mostrar", color = Color.Gray)
+        } else {
+            Text("Excusas Recibidas:", style = MaterialTheme.typography.subtitle1)
+
+            filtered.forEach { excusa ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp),
+                    elevation = 4.dp
                 ) {
-                    Column(modifier = Modifier.padding(8.dp)) {
+                    Column(modifier = Modifier.padding(12.dp)) {
                         Text("Alumno: ${excusa.alumno.nombre}")
                         Text("Motivo: ${excusa.razon}")
                         Text("Descripción: ${excusa.descripcion}")
                         Text("Fecha: ${excusa.fecha_solicitud}")
                         Text("Clase(s): ${excusa.clases.joinToString { it.nombre_clase }}")
 
-                        Text(
-                            "Archivo: ${excusa.archivo ?: "No adjunto"}",
-                            color = Color.Blue,
-                            modifier = Modifier.clickable {
-                                excusa.archivo?.let {
-                                    val uri = Uri.parse("http://192.168.1.7:3008/uploads/$it")
-                                    val intent = Intent(Intent.ACTION_VIEW, uri)
-                                    context.startActivity(intent)
-                                }
+                        Log.d("ARCHIVO_ADJUNTO", "Archivo: ${excusa.archivo}")
+
+                        if (!excusa.archivo.isNullOrEmpty()) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clickable {
+                                        val uri = Uri.parse("http://192.168.1.7:3008/uploads/${excusa.archivo}")
+                                        val intent = Intent(Intent.ACTION_VIEW, uri)
+                                        context.startActivity(intent)
+                                    }
+                                    .padding(top = 6.dp)
+                            ) {
+                                Icon(
+                                    painter = rememberAsyncImagePainter("https://cdn-icons-png.flaticon.com/512/337/337946.png"),
+                                    contentDescription = "Archivo adjunto",
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Ver archivo adjunto",
+                                    color = Color.Blue
+                                )
                             }
-                        )
+                        }
 
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Estado: ")
-                            when (excusa.estado) {
-                                "Pendiente" -> {
-                                    Text("Pendiente", color = Color.Yellow)
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                    Button(onClick = {
-                                        actualizarEstado(scope, client, excusa.id_excusa, "Aprobado", context) {
-                                            excusas = excusas.map {
-                                                if (it.id_excusa == excusa.id_excusa) it.copy(estado = "Aprobado") else it
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Estado: ${excusa.estado}", color = when (excusa.estado) {
+                                "Aprobado" -> Color.Green
+                                "Rechazado" -> Color.Red
+                                else -> Color.Yellow
+                            })
+
+                            if (excusa.estado == "Pendiente") {
+                                Row {
+                                    Button(
+                                        onClick = {
+                                            actualizarEstado(scope, client, excusa.id_excusa, "Aprobado", context) {
+                                                excusas = excusas.map {
+                                                    if (it.id_excusa == excusa.id_excusa) it.copy(estado = "Aprobado") else it
+                                                }
+                                            }
+                                        },
+                                        modifier = Modifier.padding(end = 8.dp)
+                                    ) {
+                                        Text("Aprobar")
+                                    }
+
+                                    Button(
+                                        onClick = {
+                                            actualizarEstado(scope, client, excusa.id_excusa, "Rechazado", context) {
+                                                excusas = excusas.map {
+                                                    if (it.id_excusa == excusa.id_excusa) it.copy(estado = "Rechazado") else it
+                                                }
                                             }
                                         }
-                                    }) { Text("Aprobar") }
-
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Button(onClick = {
-                                        actualizarEstado(scope, client, excusa.id_excusa, "Rechazado", context) {
-                                            excusas = excusas.map {
-                                                if (it.id_excusa == excusa.id_excusa) it.copy(estado = "Rechazado") else it
-                                            }
-                                        }
-                                    }) { Text("Rechazar") }
+                                    ) {
+                                        Text("Rechazar")
+                                    }
                                 }
-
-                                "Aprobado" -> Text("Aprobado", color = Color.Green)
-                                "Rechazado" -> Text("Rechazado", color = Color.Red)
                             }
                         }
                     }
@@ -191,3 +245,5 @@ data class Alumno(
     val alumnoId: Int,
     val nombre: String
 )
+
+

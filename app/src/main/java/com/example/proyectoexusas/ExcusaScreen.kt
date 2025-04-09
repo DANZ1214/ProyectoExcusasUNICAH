@@ -1,4 +1,4 @@
-package com.example.proyectoexusas
+package com.example.proyectoexcusas
 
 import android.net.Uri
 import android.util.Log
@@ -23,10 +23,10 @@ import coil.compose.rememberAsyncImagePainter
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.request.*
-import io.ktor.client.request.forms.MultiPartFormDataContent
-import io.ktor.client.request.forms.formData
+import io.ktor.client.request.forms.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
+import io.ktor.http.content.*
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -48,7 +48,7 @@ fun ExcusaScreen(alumnoId: String) {
 
     var selectedRazon by remember { mutableStateOf<String?>(null) }
     var descripcion by remember { mutableStateOf("") }
-    var selectedClases by remember { mutableStateOf(listOf<Int>()) }
+    var selectedClases by remember { mutableStateOf(listOf<String>()) }
     var clases by remember { mutableStateOf<List<Clase>>(emptyList()) }
     var archivoUri by remember { mutableStateOf<Uri?>(null) }
 
@@ -56,14 +56,11 @@ fun ExcusaScreen(alumnoId: String) {
         archivoUri = uri
     }
 
-    // Carga de clases desde el backend
     LaunchedEffect(Unit) {
         try {
-            Log.d("EXCUSA", "Cargando clases para alumnoId=$alumnoId")
             val response = client.get("http://192.168.1.7:3008/api/unicah/matriculaAlumno/getClasesAlumno/$alumnoId")
-            val body = response.bodyAsText()
-            Log.d("EXCUSA", "Respuesta: $body")
-            clases = Json.decodeFromString(body)
+            val json = Json { ignoreUnknownKeys = true }
+            clases = json.decodeFromString(response.bodyAsText())
         } catch (e: Exception) {
             Log.e("EXCUSA_ERROR", e.stackTraceToString())
             Toast.makeText(context, "Error al cargar clases: ${e.message}", Toast.LENGTH_LONG).show()
@@ -74,13 +71,12 @@ fun ExcusaScreen(alumnoId: String) {
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
-            .wrapContentHeight(align = Alignment.Top)
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Image(
             painter = rememberAsyncImagePainter("https://login.sec.unicah.net/imgs/NewLogo.png"),
-            contentDescription = "Logo UNICAH",
+            contentDescription = null,
             modifier = Modifier.height(100.dp),
             contentScale = ContentScale.Fit
         )
@@ -113,9 +109,7 @@ fun ExcusaScreen(alumnoId: String) {
             value = descripcion,
             onValueChange = { descripcion = it },
             label = { Text("Describe la inasistencia") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp)
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
         )
 
         Text("Selecciona las clases:", style = MaterialTheme.typography.body1)
@@ -140,10 +134,7 @@ fun ExcusaScreen(alumnoId: String) {
             }
         }
 
-        Button(
-            onClick = { filePickerLauncher.launch("*/*") },
-            modifier = Modifier.padding(top = 8.dp)
-        ) {
+        Button(onClick = { filePickerLauncher.launch("*/*") }, modifier = Modifier.padding(top = 8.dp)) {
             Text("Seleccionar archivo")
         }
 
@@ -161,7 +152,9 @@ fun ExcusaScreen(alumnoId: String) {
                 scope.launch {
                     try {
                         val contentResolver = context.contentResolver
-                        val stream = archivoUri?.let { contentResolver.openInputStream(it) }
+                        val inputStream = archivoUri?.let { contentResolver.openInputStream(it) }
+                        val fileBytes = inputStream?.readBytes()
+                        val fileName = archivoUri?.lastPathSegment ?: "archivo.pdf"
 
                         val formData = MultiPartFormDataContent(
                             formData {
@@ -170,13 +163,11 @@ fun ExcusaScreen(alumnoId: String) {
                                 append("descripcion", descripcion)
                                 append("clases", Json.encodeToString(selectedClases))
 
-                                archivoUri?.let { uri ->
-                                    val bytes = stream?.readBytes()
-                                    if (bytes != null) {
-                                        append("archivo", bytes, Headers.build {
-                                            append(HttpHeaders.ContentDisposition, "filename=\"documento.pdf\"")
-                                        })
-                                    }
+                                if (fileBytes != null) {
+                                    append("archivo", fileBytes, Headers.build {
+                                        append(HttpHeaders.ContentDisposition, "form-data; name=\"archivo\"; filename=\"$fileName\"")
+                                        append(HttpHeaders.ContentType, "application/octet-stream")
+                                    })
                                 }
                             }
                         )
@@ -202,9 +193,7 @@ fun ExcusaScreen(alumnoId: String) {
                 }
             },
             colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF003366)),
-            modifier = Modifier
-                .padding(vertical = 16.dp)
-                .fillMaxWidth()
+            modifier = Modifier.padding(vertical = 16.dp).fillMaxWidth()
         ) {
             Text("Enviar Excusa", color = Color.White)
         }
@@ -212,4 +201,7 @@ fun ExcusaScreen(alumnoId: String) {
 }
 
 @Serializable
-data class Clase(val id_clase: Int, val nombre_clase: String)
+data class Clase(
+    val id_clase: String,
+    val nombre_clase: String
+)

@@ -25,6 +25,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import coil.compose.rememberAsyncImagePainter
+import com.example.proyectoexcusas.DocenteScreen
+import com.example.proyectoexcusas.ExcusaScreen
 import com.example.proyectoexusas.ui.theme.ProyectoExusasTheme
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
